@@ -457,10 +457,8 @@ ${trkpts}
 }
 
 // Wire up export buttons
-['btn-export-json', 'btn-export-json-2'].forEach(id =>
-  document.getElementById(id).addEventListener('click', exportJSON));
-['btn-export-gpx', 'btn-export-gpx-2'].forEach(id =>
-  document.getElementById(id).addEventListener('click', exportGPX));
+document.getElementById('btn-export-json').addEventListener('click', exportJSON);
+document.getElementById('btn-export-gpx').addEventListener('click', exportGPX);
 
 // ── Clear all ───────────────────────────────────────────────────
 document.getElementById('btn-clear-all').addEventListener('click', () => {

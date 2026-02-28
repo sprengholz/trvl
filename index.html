@@ -157,6 +157,14 @@
     #map.click-mode { cursor: crosshair !important; }
     #map.click-mode .leaflet-container { cursor: crosshair !important; }
 
+    /* ── Map + controls wrapper ─────────────────────────────── */
+    #map-and-controls {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+    }
+
     /* ── Controls panel ─────────────────────────────────────── */
     #controls {
       flex-shrink: 0;
@@ -225,33 +233,7 @@
       50%       { background: #3a7be0; }
     }
 
-    /* Secondary actions row */
-    #secondary-actions {
-      display: flex;
-      gap: 8px;
-    }
-    .btn-secondary {
-      flex: 1;
-      height: 36px;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--border);
-      background: var(--surface-2);
-      color: var(--text-muted);
-      font-size: 12px;
-      font-weight: 500;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 5px;
-      transition: background var(--transition), color var(--transition);
-      -webkit-tap-highlight-color: transparent;
-      touch-action: manipulation;
-    }
-    .btn-secondary:hover, .btn-secondary:active { background: var(--surface-3); color: var(--text); }
-    .btn-secondary svg { width: 14px; height: 14px; }
-    .btn-secondary.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
-    .btn-secondary.danger:hover { background: rgba(224,82,82,0.15); color: var(--danger); border-color: var(--danger); }
+    .icon-btn.danger:hover { background: rgba(224,82,82,0.15); color: var(--danger); border-color: rgba(224,82,82,0.4); }
 
     /* ── Stop list ──────────────────────────────────────────── */
     #stops-section {
@@ -559,14 +541,8 @@
     /* ── Desktop layout ─────────────────────────────────────── */
     @media (min-width: 768px) {
       body, html { overflow: hidden; }
-      #app {
-        flex-direction: column;
-        height: 100%;
-      }
       #map-and-controls {
-        display: flex;
-        flex: 1;
-        min-height: 0;
+        flex-direction: row;
       }
       #map {
         flex: 1;
@@ -658,6 +634,13 @@
             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
           </svg>
         </button>
+        <button class="icon-btn danger" id="btn-clear-all" title="Clear all stops">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+            <path d="M10 11v6M14 11v6"/>
+          </svg>
+        </button>
       </div>
     </header>
 
@@ -697,30 +680,6 @@
             </svg>
             Add Current Location
           </button>
-          <div id="secondary-actions">
-            <button class="btn-secondary" id="btn-clear-all">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="3 6 5 6 21 6"/>
-                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                <path d="M10 11v6M14 11v6"/>
-              </svg>
-              Clear all
-            </button>
-            <button class="btn-secondary" id="btn-export-json-2">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="7 10 12 15 17 10"/>
-                <line x1="12" y1="15" x2="12" y2="3"/>
-              </svg>
-              JSON
-            </button>
-            <button class="btn-secondary" id="btn-export-gpx-2">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-              </svg>
-              GPX
-            </button>
-          </div>
         </div>
 
         <div id="stops-section">
