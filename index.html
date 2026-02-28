@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>trvl</title>
+  <link rel="stylesheet" href="leaflet/leaflet.css" />
+  <style>
+    /* ── Design tokens ─────────────────────────────────────── */
+    :root {
+      --bg:           #0f1117;
+      --surface:      #1c1f2e;
+      --surface-2:    #252839;
+      --surface-3:    #2e3248;
+      --accent:       #4f8ef7;
+      --accent-dim:   rgba(79,142,247,0.15);
+      --route:        #f7694f;
+      --marker-bg:    #f7694f;
+      --text:         #f0f4ff;
+      --text-muted:   #8891aa;
+      --border:       rgba(255,255,255,0.08);
+      --danger:       #e05252;
+      --success:      #4caf88;
+      --radius:       12px;
+      --radius-sm:    8px;
+      --header-h:     56px;
+      --controls-h:   220px;
+      --transition:   200ms ease;
+    }
+
+    /* ── Reset ─────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    /* ── App shell ─────────────────────────────────────────── */
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    /* ── Header ────────────────────────────────────────────── */
+    #header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: var(--header-h);
+      padding: 0 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      z-index: 1000;
+    }
+    #header-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    #header-brand h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      color: var(--text);
+    }
+    #header-brand h1 span {
+      color: var(--route);
+    }
+    #status-badge {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: var(--text-muted);
+      padding: 3px 8px;
+      background: var(--surface-2);
+      border-radius: 20px;
+      border: 1px solid var(--border);
+    }
+    #status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--text-muted);
+    }
+    #status-dot.online  { background: var(--success); }
+    #status-dot.offline { background: var(--text-muted); }
+    #header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .icon-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: background var(--transition), color var(--transition);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .icon-btn:hover, .icon-btn:active { background: var(--surface-3); color: var(--text); }
+    .icon-btn svg { width: 18px; height: 18px; }
+
+    /* ── Map ────────────────────────────────────────────────── */
+    #map {
+      flex: 1;
+      width: 100%;
+      min-height: 0;
+      background: #1a2f4a;
+    }
+    /* Override Leaflet attribution style */
+    .leaflet-control-attribution {
+      background: rgba(15,17,23,0.75) !important;
+      color: var(--text-muted) !important;
+      font-size: 10px !important;
+    }
+    .leaflet-control-attribution a { color: var(--accent) !important; }
+    .leaflet-control-zoom a {
+      background: var(--surface) !important;
+      color: var(--text) !important;
+      border-color: var(--border) !important;
+    }
+    .leaflet-control-zoom a:hover { background: var(--surface-2) !important; }
+
+    /* Custom marker pins */
+    .trvl-pin {
+      width: 36px;
+      height: 36px;
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      background: var(--marker-bg);
+      border: 3px solid #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .trvl-pin span {
+      transform: rotate(45deg);
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1;
+    }
+    /* Map-click cursor mode */
+    #map.click-mode { cursor: crosshair !important; }
+    #map.click-mode .leaflet-container { cursor: crosshair !important; }
+
+    /* ── Controls panel ─────────────────────────────────────── */
+    #controls {
+      flex-shrink: 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+    }
+
+    /* Stats bar */
+    #stats-bar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .stat {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    .stat strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+    .stat svg { width: 14px; height: 14px; opacity: 0.6; }
+
+    /* Button area */
+    #btn-area {
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    #btn-add {
+      width: 100%;
+      height: 56px;
+      border-radius: var(--radius);
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background var(--transition), transform var(--transition);
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    #btn-add:hover   { background: #3a7be0; }
+    #btn-add:active  { transform: scale(0.98); }
+    #btn-add:disabled {
+      background: var(--surface-2);
+      color: var(--text-muted);
+      cursor: default;
+      transform: none;
+    }
+    #btn-add svg { width: 20px; height: 20px; }
+    #btn-add.loading { animation: pulse-btn 1.2s ease-in-out infinite; }
+    @keyframes pulse-btn {
+      0%, 100% { background: var(--accent); }
+      50%       { background: #3a7be0; }
+    }
+
+    /* Secondary actions row */
+    #secondary-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .btn-secondary {
+      flex: 1;
+      height: 36px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      transition: background var(--transition), color var(--transition);
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    .btn-secondary:hover, .btn-secondary:active { background: var(--surface-3); color: var(--text); }
+    .btn-secondary svg { width: 14px; height: 14px; }
+    .btn-secondary.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+    .btn-secondary.danger:hover { background: rgba(224,82,82,0.15); color: var(--danger); border-color: var(--danger); }
+
+    /* ── Stop list ──────────────────────────────────────────── */
+    #stops-section {
+      max-height: 220px;
+      overflow-y: auto;
+      border-top: 1px solid var(--border);
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+    }
+    #stops-section::-webkit-scrollbar { width: 4px; }
+    #stops-section::-webkit-scrollbar-track { background: transparent; }
+    #stops-section::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    #stops-empty {
+      padding: 20px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+    #stops-list { list-style: none; }
+    .stop-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      border-left: 3px solid var(--route);
+      animation: slideIn 0.2s ease;
+      transition: background var(--transition);
+    }
+    .stop-item:hover { background: var(--surface-2); }
+    .stop-item:last-child { border-bottom: none; }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(-10px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    .stop-num {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--marker-bg);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .stop-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .stop-name {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .stop-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 1px;
+    }
+    .stop-actions {
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .stop-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background var(--transition), color var(--transition);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .stop-btn svg { width: 14px; height: 14px; }
+    .stop-btn.edit:hover   { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
+    .stop-btn.delete:hover { background: rgba(224,82,82,0.15); color: var(--danger); border-color: var(--danger); }
+
+    /* Inline edit input */
+    .stop-name-input {
+      width: 100%;
+      background: var(--surface-3);
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      padding: 4px 8px;
+      color: var(--text);
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+    }
+
+    /* ── Modal overlay ──────────────────────────────────────── */
+    #modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(4px);
+      z-index: 2000;
+      align-items: flex-end;
+    }
+    #modal-overlay.visible {
+      display: flex;
+      animation: fadeIn 0.2s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    #modal {
+      width: 100%;
+      background: var(--surface);
+      border-radius: 20px 20px 0 0;
+      padding: 0 0 env(safe-area-inset-bottom);
+      animation: slideUp 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to   { transform: translateY(0); }
+    }
+    #modal-handle {
+      width: 36px;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      margin: 12px auto 0;
+    }
+    #modal-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 20px 0;
+    }
+    #modal-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: rgba(247,105,79,0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--route);
+      flex-shrink: 0;
+    }
+    #modal-icon svg { width: 22px; height: 22px; }
+    #modal-title {
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    #modal-coords {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 16px 20px 0;
+    }
+    .coord-box {
+      background: var(--surface-2);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+    }
+    .coord-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+      margin-bottom: 3px;
+    }
+    .coord-value {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+    }
+    #modal-accuracy {
+      padding: 8px 20px 0;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    #modal-accuracy span { color: var(--accent); font-weight: 500; }
+    #modal-form {
+      padding: 16px 20px;
+    }
+    #modal-form label {
+      display: block;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+    #input-name {
+      width: 100%;
+      height: 48px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0 14px;
+      color: var(--text);
+      font-size: 15px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color var(--transition);
+    }
+    #input-name:focus { border-color: var(--accent); }
+    #input-name::placeholder { color: var(--text-muted); }
+    #modal-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      padding: 0 20px 20px;
+    }
+    .btn-modal {
+      height: 48px;
+      border-radius: var(--radius-sm);
+      border: none;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background var(--transition), transform var(--transition);
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    .btn-modal:active { transform: scale(0.97); }
+    #btn-cancel { background: var(--surface-2); color: var(--text-muted); }
+    #btn-cancel:hover { background: var(--surface-3); }
+    #btn-save { background: var(--accent); color: #fff; }
+    #btn-save:hover { background: #3a7be0; }
+
+    /* ── Toast notification ─────────────────────────────────── */
+    #toast {
+      position: fixed;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--surface-3);
+      color: var(--text);
+      padding: 10px 18px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      opacity: 0;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      pointer-events: none;
+      z-index: 3000;
+      white-space: nowrap;
+      border: 1px solid var(--border);
+    }
+    #toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ── Map-click mode fab ─────────────────────────────────── */
+    #fab-click-mode {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      background: var(--surface);
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+      z-index: 900;
+      transition: background var(--transition), color var(--transition), border-color var(--transition);
+      -webkit-tap-highlight-color: transparent;
+    }
+    #fab-click-mode svg { width: 22px; height: 22px; }
+    #fab-click-mode.active {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    #fab-click-mode .tooltip {
+      position: absolute;
+      right: 56px;
+      white-space: nowrap;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 12px;
+      padding: 5px 10px;
+      border-radius: 6px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity var(--transition);
+    }
+    #fab-click-mode:hover .tooltip { opacity: 1; }
+
+    /* ── Desktop layout ─────────────────────────────────────── */
+    @media (min-width: 768px) {
+      body, html { overflow: hidden; }
+      #app {
+        flex-direction: column;
+        height: 100%;
+      }
+      #map-and-controls {
+        display: flex;
+        flex: 1;
+        min-height: 0;
+      }
+      #map {
+        flex: 1;
+        min-width: 0;
+      }
+      #controls {
+        width: 320px;
+        flex-shrink: 0;
+        border-top: none;
+        border-left: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      #stats-bar { border-bottom: 1px solid var(--border); }
+      #stops-section { flex: 1; max-height: none; overflow-y: auto; }
+      #modal {
+        border-radius: var(--radius);
+        max-width: 420px;
+        margin: auto;
+      }
+      #modal-overlay { align-items: center; }
+    }
+
+    /* ── Leaflet popup ──────────────────────────────────────── */
+    .leaflet-popup-content-wrapper {
+      background: var(--surface) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: var(--radius-sm) !important;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5) !important;
+      color: var(--text) !important;
+    }
+    .leaflet-popup-tip { background: var(--surface) !important; }
+    .leaflet-popup-content { margin: 12px 14px !important; }
+    .popup-title {
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+    .popup-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+    .popup-actions {
+      display: flex;
+      gap: 6px;
+    }
+    .popup-btn {
+      flex: 1;
+      height: 30px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text-muted);
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      transition: background var(--transition), color var(--transition);
+    }
+    .popup-btn.edit:hover   { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
+    .popup-btn.delete:hover { color: var(--danger); border-color: var(--danger); background: rgba(224,82,82,0.15); }
+    .popup-btn svg { width: 12px; height: 12px; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header id="header">
+      <div id="header-brand">
+        <h1>tr<span>v</span>l</h1>
+        <div id="status-badge">
+          <div id="status-dot"></div>
+          <span id="status-text">Offline</span>
+        </div>
+      </div>
+      <div id="header-actions">
+        <button class="icon-btn" id="btn-export-json" title="Export JSON">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+        </button>
+        <button class="icon-btn" id="btn-export-gpx" title="Export GPX">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <div id="map-and-controls">
+      <div id="map">
+        <button id="fab-click-mode" title="Click on map to add location">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+          <span class="tooltip">Click map to add</span>
+        </button>
+      </div>
+
+      <div id="controls">
+        <div id="stats-bar">
+          <div class="stat">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/>
+            </svg>
+            <span><strong id="stat-stops">0</strong> stops</span>
+          </div>
+          <div class="stat" id="stat-dist-wrap" style="display:none">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 12h18M3 6l9-3 9 3M3 18l9 3 9-3"/>
+            </svg>
+            <span><strong id="stat-dist">0</strong> km</span>
+          </div>
+        </div>
+
+        <div id="btn-area">
+          <button id="btn-add">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/>
+              <line x1="12" y1="8" x2="12" y2="14"/>
+              <line x1="9" y1="11" x2="15" y2="11"/>
+            </svg>
+            Add Current Location
+          </button>
+          <div id="secondary-actions">
+            <button class="btn-secondary" id="btn-clear-all">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                <path d="M10 11v6M14 11v6"/>
+              </svg>
+              Clear all
+            </button>
+            <button class="btn-secondary" id="btn-export-json-2">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              JSON
+            </button>
+            <button class="btn-secondary" id="btn-export-gpx-2">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+              </svg>
+              GPX
+            </button>
+          </div>
+        </div>
+
+        <div id="stops-section">
+          <div id="stops-empty">No stops yet — add your first location!</div>
+          <ul id="stops-list"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add/edit location modal -->
+  <div id="modal-overlay">
+    <div id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div id="modal-handle"></div>
+      <div id="modal-header">
+        <div id="modal-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+        </div>
+        <div>
+          <div id="modal-title">Location Captured</div>
+          <div id="modal-subtitle" style="font-size:12px;color:var(--text-muted);margin-top:2px"></div>
+        </div>
+      </div>
+      <div id="modal-coords">
+        <div class="coord-box">
+          <div class="coord-label">Latitude</div>
+          <div class="coord-value" id="modal-lat">—</div>
+        </div>
+        <div class="coord-box">
+          <div class="coord-label">Longitude</div>
+          <div class="coord-value" id="modal-lon">—</div>
+        </div>
+      </div>
+      <div id="modal-accuracy"></div>
+      <div id="modal-form">
+        <label for="input-name">Location name <span style="color:var(--text-muted);font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+        <input id="input-name" type="text" placeholder="e.g. Eiffel Tower" autocomplete="off" spellcheck="false" />
+      </div>
+      <div id="modal-actions">
+        <button class="btn-modal" id="btn-cancel">Cancel</button>
+        <button class="btn-modal" id="btn-save">Save Location</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast"></div>
+
+  <script src="leaflet/leaflet.js"></script>
+  <script src="leaflet/topojson-client.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
