@@ -23,11 +23,11 @@ map.createPane('geoJsonBase');
 map.getPane('geoJsonBase').style.zIndex = 150;
 map.getPane('geoJsonBase').style.pointerEvents = 'none';
 
-// OSM tile layer (online base map)
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-  maxZoom: 19,
-  crossOrigin: true,
+// CARTO Dark Matter — dark monochrome (blue-grey tones)
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
+  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
+  subdomains: 'abcd',
+  maxZoom: 20,
 }).addTo(map);
 
 // Natural Earth 110m countries as offline fallback base layer
@@ -220,6 +220,11 @@ function renderStopList() {
 
   list.innerHTML = state.locations.map((loc, i) => `
     <li class="stop-item" data-id="${loc.id}">
+      <div class="drag-handle" title="Drag to reorder">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="8" y1="6"  x2="16" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="18" x2="16" y2="18"/>
+        </svg>
+      </div>
       <div class="stop-num">${i + 1}</div>
       <div class="stop-info">
         <div class="stop-name" id="name-${loc.id}">${escapeHtml(loc.name)}</div>
@@ -526,6 +531,32 @@ document.addEventListener('keydown', e => {
     fabClickMode.classList.remove('active');
     document.getElementById('map').classList.remove('click-mode');
   }
+});
+
+// ── Drag-to-reorder (SortableJS) ────────────────────────────────
+Sortable.create(document.getElementById('stops-list'), {
+  animation: 150,
+  handle: '.drag-handle',
+  ghostClass: 'stop-item-ghost',
+  chosenClass: 'stop-item-chosen',
+  onEnd(evt) {
+    const { oldIndex, newIndex } = evt;
+    if (oldIndex === newIndex) return;
+
+    const [loc] = state.locations.splice(oldIndex, 1);
+    state.locations.splice(newIndex, 0, loc);
+    const [marker] = state.markers.splice(oldIndex, 1);
+    state.markers.splice(newIndex, 0, marker);
+
+    // Renumber marker icons and refresh popups
+    state.markers.forEach((m, i) => m.setIcon(createIcon(i + 1)));
+    state.locations.forEach((l, i) => state.markers[i].setPopupContent(buildPopupHtml(l)));
+
+    updatePolyline();
+    renderStopList();
+    updateStats();
+    saveToStorage();
+  },
 });
 
 // ── Init ────────────────────────────────────────────────────────

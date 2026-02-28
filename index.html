@@ -69,7 +69,7 @@
       color: var(--text);
     }
     #header-brand h1 span {
-      color: var(--route);
+      color: var(--text);
     }
     #status-badge {
       display: flex;
@@ -321,6 +321,24 @@
     .stop-btn svg { width: 14px; height: 14px; }
     .stop-btn.edit:hover   { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
     .stop-btn.delete:hover { background: rgba(224,82,82,0.15); color: var(--danger); border-color: var(--danger); }
+
+    /* Drag handle */
+    .drag-handle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      flex-shrink: 0;
+      color: var(--text-muted);
+      opacity: 0.35;
+      cursor: grab;
+      touch-action: none;
+    }
+    .drag-handle:hover { opacity: 0.7; }
+    .drag-handle:active { cursor: grabbing; }
+    .drag-handle svg { width: 14px; height: 14px; }
+    .stop-item-ghost  { opacity: 0.35; background: var(--surface-2) !important; }
+    .stop-item-chosen { background: var(--surface-3) !important; }
 
     /* Inline edit input */
     .stop-name-input {
@@ -733,6 +751,7 @@
 
   <script src="leaflet/leaflet.js"></script>
   <script src="leaflet/topojson-client.min.js"></script>
+  <script src="leaflet/sortable.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
